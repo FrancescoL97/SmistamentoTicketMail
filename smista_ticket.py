@@ -51,6 +51,8 @@ def valutazione_stato(mail):
     return stato
 
 def trova_mail_collegate(mail, ticket_id):
+    if not mail or not hasattr(mail, "Subject") or not hasattr(mail, "Body"):
+        return False
     id_regex = re.compile(ticket_id, re.IGNORECASE)
     return bool(id_regex.search(mail.Subject) or id_regex.search(mail.Body))
 
