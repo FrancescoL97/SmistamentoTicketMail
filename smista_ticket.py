@@ -51,25 +51,25 @@ def valutazione_stato(mail):
     return stato
 
 def trova_mail_collegate(mail, ticket_id):
-    if not mail or not hasattr(mail, "Subject") or not hasattr(mail, "Body"):
+    try:
+        id_regex = re.compile(ticket_id, re.IGNORECASE)
+        return bool(id_regex.search(mail.Subject) or id_regex.search(mail.Body))
+    except Exception as e:
+        print(f"Errore durante controllo correlazione mail: {e}")
         return False
-    id_regex = re.compile(ticket_id, re.IGNORECASE)
-    return bool(id_regex.search(mail.Subject) or id_regex.search(mail.Body))
 
 ### Azioni
 for ticket in tickets_da_valutare:
     id_valutato = ricerca_id(ticket)
     if id_valutato:
         if valutazione_stato(ticket) == "aperto":
-            ticket.Categories = "TICKET APERTO"
             ticket.Save()
             ticket.Move(aperti_folder)
         elif valutazione_stato(ticket) == "chiuso":
-            ticket.Categories = "TICKET CHIUSO"
             ticket.Save()
             ticket.Move(chiusi_folder)
+            aperti_snapshot = list(ticket_aperti)
             for aperti in ticket_aperti:
                 if trova_mail_collegate(aperti,id_valutato):
-                    aperti.Categories = "TICKET CHIUSO"
                     aperti.Save()
                     aperti.Move(chiusi_folder)
