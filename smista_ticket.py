@@ -9,6 +9,7 @@
 
 import win32com.client
 import re
+import time
 
 # === Collegamento a Outlook e alle cartelle ===
 outlook = win32com.client.Dispatch("Outlook.Application")
@@ -18,9 +19,6 @@ inbox = namespace.GetDefaultFolder(6)  # Posta in arrivo
 ticket_folder = inbox.Folders["TICKET"]
 aperti_folder = ticket_folder.Folders["APERTI"]
 chiusi_folder = ticket_folder.Folders["CHIUSI"]
-
-tickets_da_valutare = ticket_folder.Items
-ticket_aperti = aperti_folder.Items
 
 # === Parole chiave per valutazione stato ===
 KEYWORDS_APERTO = [
@@ -98,25 +96,50 @@ def trova_mail_collegate(mail, ticket_id):
 # ───────────────────────────────────────────────────────────────
 # MAIN: smistamento delle mail in base allo stato
 # ───────────────────────────────────────────────────────────────
-for ticket in tickets_da_valutare:
-    id_valutato = ricerca_id(ticket)
+def smista_ticket():
+    '''
+    Scansiona tutte le email nella cartella 'TICKET' e le smista nelle sottocartelle
+    'APERTI' o 'CHIUSI' in base allo stato del ticket rilevato.
 
-    if id_valutato:
-        stato = valutazione_stato(ticket)
+    Per ogni mail:
+    - Estrae l'ID del ticket (es. REQ123456, INC123456, RITM123456)
+    - Determina se è 'aperto' o 'chiuso' in base a parole chiave nel subject
+    - Sposta la mail nella cartella corretta ('APERTI' o 'CHIUSI')
 
-        if stato == "aperto":
-            ticket.Save()
-            ticket.Move(aperti_folder)
+    In caso di ticket chiuso:
+    - Cerca eventuali altre email collegate già presenti in 'APERTI'
+    - Se trovate, le sposta anch'esse in 'CHIUSI'
 
-        elif stato == "chiuso":
-            ticket.Save()
-            ticket.Move(chiusi_folder)
+    :return: La funzione non restituisce nulla. Opera direttamente sulle email di Outlook.
+    '''
+    tickets_da_valutare = ticket_folder.Items
+    ticket_aperti = aperti_folder.Items
 
-            # Snapshot della cartella APERTI dopo lo spostamento
-            aperti_snapshot = list(ticket_aperti)
+    for ticket in tickets_da_valutare:
+        id_valutato = ricerca_id(ticket)
 
-            # Cerca e sposta tutte le mail collegate
-            for aperti in aperti_snapshot:
-                if trova_mail_collegate(aperti, id_valutato):
-                    aperti.Save()
-                    aperti.Move(chiusi_folder)
+        if id_valutato:
+            stato = valutazione_stato(ticket)
+
+            if stato == "aperto":
+                ticket.Save()
+                ticket.Move(aperti_folder)
+
+            elif stato == "chiuso":
+                ticket.Save()
+                ticket.Move(chiusi_folder)
+
+                # Snapshot della cartella APERTI dopo lo spostamento
+                aperti_snapshot = list(ticket_aperti)
+
+                # Cerca e sposta tutte le mail collegate
+                for aperti in aperti_snapshot:
+                    if trova_mail_collegate(aperti, id_valutato):
+                        aperti.Save()
+                        aperti.Move(chiusi_folder)
+
+if __name__ == "__main__":
+    for i in range(5):
+        print(f"\n Lancio {i+1}/5...\n")
+        smista_ticket()
+        time.sleep(1)  # 1 secondo di pausa tra le esecuzioni
